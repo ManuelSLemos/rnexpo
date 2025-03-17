@@ -5,9 +5,9 @@ import { Button, TextInput } from 'react-native';
 
 export default function Unity() {
   const unityRef = useRef<UnityView>(null);
-  const [textFromUnity, setTextFromUnity] = useState<string>('No text received');
-  const [messageToUnity, setMessageToUnity] = useState<string>();
-  const [buttonColor, setButtonColor] = useState<string>('rgba(0, 0, 255, 1)');
+  const [textFromUnity, setTextFromUnity] = useState('No text received');
+  const [messageToUnity, setMessageToUnity] = useState('');
+  const [buttonColor, setButtonColor] = useState('rgba(0, 0, 255, 1)');
 
   let unityData = {
     message: messageToUnity ?? 'Hell yeah',
@@ -15,7 +15,7 @@ export default function Unity() {
 };
 
 // Function responsible to send data to the Unity side
-const sendDataToUnity = (): void => {
+const sendDataToUnity = () => {
     if (unityRef?.current) {
         // GameManager is the elemente that we created to integrate the scripts with the corresponding elements
         // GetData is the function that we implemented on DataFromReact script. We are targeting it here
@@ -24,7 +24,7 @@ const sendDataToUnity = (): void => {
     }
 };
 
-const convertColor = (colorObject: any): string => {
+const convertColor = (colorObject) => {
     const r = Math.round(colorObject.r * 255);
     const g = Math.round(colorObject.g * 255);
     const b = Math.round(colorObject.b * 255);
@@ -34,7 +34,7 @@ const convertColor = (colorObject: any): string => {
 };
 
 // Function that converts data received from Unity
-const receiveDataFromUnity = (result: any): void => {
+const receiveDataFromUnity = (result) => {
     const objectReceived = JSON.parse(result.nativeEvent.message);
     setTextFromUnity(objectReceived.message);
     setButtonColor(convertColor(objectReceived.color));
@@ -69,7 +69,7 @@ const receiveDataFromUnity = (result: any): void => {
         <UnityView
             ref={unityRef}
             style={{ flex: 1 }}
-            onUnityMessage={(result: any) => receiveDataFromUnity(result)}
+            onUnityMessage={(result) => receiveDataFromUnity(result)}
         />
     </View>
   );

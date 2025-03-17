@@ -11,4 +11,4 @@ pluginManagement {
 }
 
 include ':launcher', ':unityLibrary'
-include 'unityLibrary:mobilenotifications.androidlib'
+//include 'unityLibrary:mobilenotifications.androidlib'

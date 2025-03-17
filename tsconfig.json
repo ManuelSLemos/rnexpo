@@ -14,5 +14,5 @@
     "**/*.ts",
     "**/*.tsx",
     "index.js"
-  ]
+, "app/index.js"  ]
 }

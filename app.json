@@ -2,7 +2,7 @@
   "expo": {
     "name": "PosemeshReactNativeExample",
     "slug": "PosemeshReactNativeExample",
-    "scheme":"test",
+    "scheme": "test",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,19 +14,28 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.PosemeshReactNativeExample"
+      "bundleIdentifier": "com.DefaultCompany.com.unity.template.mobile2D"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.DefaultCompany.com.unity.template.mobile2D"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "a81c8aa5-0d5a-450e-a832-2227ff7bb5c9"
+      }
+    }
   }
 }
