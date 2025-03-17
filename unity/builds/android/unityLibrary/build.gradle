@@ -1,48 +1,60 @@
 apply plugin: 'com.android.library'
-
+apply from: '../shared/keepUnitySymbols.gradle'
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    //implementation project('mobilenotifications.androidlib')
-
+    implementation project(':unityLibrary:mobilenotifications.androidlib')
+    implementation 'androidx.games:games-frame-pacing:1.10.0'
 }
 
 android {
-    compileSdkVersion 30
-    buildToolsVersion '30.0.2'
+    namespace "com.unity3d.player"
+    ndkPath "C:/Program Files/Unity/Hub/Editor/6000.0.5f1/Editor/Data/PlaybackEngines/AndroidPlayer/NDK"
+    ndkVersion "23.1.7779620"
+    compileSdk 34
+    buildToolsVersion = "34.0.0"
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     defaultConfig {
-        minSdkVersion 22
-        targetSdkVersion 30
-        ndk {
-            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
-        }
+        consumerProguardFiles "proguard-unity.txt"
+        versionName "1.0.2"
+        minSdk 23
+        targetSdk 34
         versionCode 1
-        versionName '1.0.2'
-        consumerProguardFiles 'proguard-unity.txt'
+
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
+            debugSymbolLevel "none"
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
     }
 
-    lintOptions {
+    lint {
         abortOnError false
     }
 
-    aaptOptions {
+    androidResources {
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
         noCompress = ['.unity3d', '.ress', '.resource', '.obb', '.bundle', '.unityexp'] + unityStreamingAssets.tokenize(', ')
-        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~"
     }
 
-    packagingOptions {
-        doNotStrip '*/armeabi-v7a/*.so'
-        doNotStrip '*/arm64-v8a/*.so'
-        doNotStrip '*/x86/*.so'
-        doNotStrip '*/x86_64/*.so'
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
     }
 }
+
+
 
 def getSdkDir() {
     Properties local = new Properties()
@@ -50,54 +62,90 @@ def getSdkDir() {
     return local.getProperty('sdk.dir')
 }
 
-def BuildIl2Cpp(String workingDir, String configuration, String architecture, String abi, String[] staticLibraries) {
+def GetIl2CppOutputPath(String workingDir, String abi) {
+    return "${workingDir}/src/main/jniLibs/${abi}/libil2cpp.so";
+}
+
+def GetIl2CppSymbolPath(String workingDir, String abi) {
+    return "${workingDir}/symbols/${abi}/libil2cpp.so";
+}
+
+def BuildIl2CppImpl(String workingDir, String configuration, String architecture, String abi, String[] staticLibraries) {
     def commandLineArgs = []
     commandLineArgs.add("--compile-cpp")
     commandLineArgs.add("--platform=Android")
-    commandLineArgs.add("--architecture=" + architecture)
-    commandLineArgs.add("--outputpath=" + workingDir + "/src/main/jniLibs/" + abi + "/libil2cpp.so")
-    commandLineArgs.add("--libil2cpp-static")
-    commandLineArgs.add("--baselib-directory=" + workingDir + "/src/main/jniStaticLibs/" + abi)
+    commandLineArgs.add("--architecture=${architecture}")
+    commandLineArgs.add("--outputpath=${workingDir}/src/main/jniLibs/${abi}/libil2cpp.so")
+    commandLineArgs.add("--baselib-directory=${workingDir}/src/main/jniStaticLibs/${abi}")
     commandLineArgs.add("--incremental-g-c-time-slice=3")
-    commandLineArgs.add("--configuration=" + configuration)
+    commandLineArgs.add("--configuration=${configuration}")
     commandLineArgs.add("--dotnetprofile=unityaot-linux")
+    commandLineArgs.add("--usymtool-path=${workingDir}/src/main/Il2CppOutputProject/usymtool.exe")
     commandLineArgs.add("--profiler-report")
-    commandLineArgs.add("--profiler-output-file=" + workingDir + "/build/il2cpp_"+ abi + "_" + configuration + "/il2cpp_conv.traceevents")
+    commandLineArgs.add("--profiler-output-file=${workingDir}/build/il2cpp_${abi}_${configuration}/il2cpp_conv.traceevents")
     commandLineArgs.add("--print-command-line")
-    commandLineArgs.add("--generatedcppdir=" + workingDir + "/src/main/Il2CppOutputProject/Source/il2cppOutput")
-    commandLineArgs.add("--cachedirectory=" + workingDir + "/build/il2cpp_"+ abi + "_" + configuration + "/il2cpp_cache")
-    commandLineArgs.add("--tool-chain-path=" + android.ndkDirectory)
+    commandLineArgs.add("--static-lib-il2-cpp")
+    commandLineArgs.add("--data-folder=${workingDir}/src/main/Il2CppOutputProject/Source/il2cppOutput/data")
+    commandLineArgs.add("--generatedcppdir=${workingDir}/src/main/Il2CppOutputProject/Source/il2cppOutput")
+    commandLineArgs.add("--cachedirectory=${workingDir}/build/il2cpp_${abi}_${configuration}/il2cpp_cache")
+    commandLineArgs.add("--tool-chain-path=${android.ndkDirectory}")
+
     staticLibraries.eachWithIndex {fileName, i->
-        commandLineArgs.add("--additional-libraries=" + workingDir + "/src/main/jniStaticLibs/" + abi + "/" + fileName)
+        commandLineArgs.add("--additional-libraries=${workingDir}/src/main/jniStaticLibs/${abi}/${fileName}")
     }
+
     def executableExtension = ""
     if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
         executableExtension = ".exe"
         commandLineArgs = commandLineArgs*.replace('\"', '\\\"')
     }
     exec {
-        executable workingDir + "/src/main/Il2CppOutputProject/IL2CPP/build/deploy/il2cpp" + executableExtension
+        executable "${workingDir}/src/main/Il2CppOutputProject/IL2CPP/build/deploy/il2cpp${executableExtension}"
         args commandLineArgs
         environment "ANDROID_SDK_ROOT", getSdkDir()
     }
-    delete workingDir + "/src/main/jniLibs/" + abi + "/libil2cpp.sym.so"
-    ant.move(file: workingDir + "/src/main/jniLibs/" + abi + "/libil2cpp.dbg.so", tofile: workingDir + "/symbols/" + abi + "/libil2cpp.so")
+
+    def dbgLevel =  project.android.defaultConfig.ndk.debugSymbolLevel;
+    def usePublicSymbols = dbgLevel == null || !dbgLevel.toString().toLowerCase().equals("full")
+    def extensionToRemove = usePublicSymbols ? ".dbg.so" : ".sym.so"
+    def extensionToKeep = usePublicSymbols ? ".sym.so" : ".dbg.so"
+
+    delete "${workingDir}/src/main/jniLibs/${abi}/libil2cpp${extensionToRemove}"
+    ant.move(file: "${workingDir}/src/main/jniLibs/${abi}/libil2cpp${extensionToKeep}", tofile: "${workingDir}/symbols/${abi}/libil2cpp.so")
+
 }
 
 android {
-    task BuildIl2CppTask {
+    tasks.register('buildIl2Cpp') {
+        def workingDir = projectDir.toString().replaceAll('\\\\', '/');
+        def archs = [
+            'armv7' : 'armeabi-v7a',
+            'arm64' : 'arm64-v8a',
+            'x64' : 'x86_64'
+        ]
+        def staticLibs = [
+            'armv7' : [  ],
+            'arm64' : [  ],
+            'x64' : [  ]
+        ]
+        inputs.files fileTree(dir: 'src/main/Il2CppOutputProject', include: ['**/*'])
+        inputs.files fileTree(dir: 'src/main/jniStaticLibs', include: ['**/*'])
+        archs.each { arch, abi ->
+            outputs.file GetIl2CppOutputPath(workingDir, abi)
+            outputs.file GetIl2CppSymbolPath(workingDir, abi)
+        }
         doLast {
-              BuildIl2Cpp(projectDir.toString().replaceAll('\\\\', '/'), 'Release', 'armv7', 'armeabi-v7a', [  ] as String[]);
-              BuildIl2Cpp(projectDir.toString().replaceAll('\\\\', '/'), 'Release', 'arm64', 'arm64-v8a', [  ] as String[]);
-              BuildIl2Cpp(projectDir.toString().replaceAll('\\\\', '/'), 'Release', 'x86', 'x86', [  ] as String[]);
-              BuildIl2Cpp(projectDir.toString().replaceAll('\\\\', '/'), 'Release', 'x64', 'x86_64', [  ] as String[]);
+            archs.each { arch, abi ->
+                BuildIl2CppImpl(workingDir, 'Release', arch, abi, staticLibs[arch] as String[]);
+            }
         }
     }
+
     afterEvaluate {
         if (project(':unityLibrary').tasks.findByName('mergeDebugJniLibFolders'))
-            project(':unityLibrary').mergeDebugJniLibFolders.dependsOn BuildIl2CppTask
+            project(':unityLibrary').mergeDebugJniLibFolders.dependsOn buildIl2Cpp
         if (project(':unityLibrary').tasks.findByName('mergeReleaseJniLibFolders'))
-            project(':unityLibrary').mergeReleaseJniLibFolders.dependsOn BuildIl2CppTask
+            project(':unityLibrary').mergeReleaseJniLibFolders.dependsOn buildIl2Cpp
     }
     sourceSets {
         main {
@@ -106,5 +154,12 @@ android {
     }
 }
 
-
-
+android.externalNativeBuild {
+    cmake {
+        version "3.22.1"
+        path "src/main/cpp/CMakeLists.txt"
+    }
+}
+android.buildFeatures {
+    prefab true
+}

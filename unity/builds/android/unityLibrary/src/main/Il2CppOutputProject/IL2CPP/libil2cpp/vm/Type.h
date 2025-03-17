@@ -214,6 +214,7 @@ namespace vm
         static const Il2CppType* GetUnderlyingType(const Il2CppType *type);
         static uint32_t GetToken(const Il2CppType *type);
         static bool IsGenericInstance(const Il2CppType *type);
+        static bool IsGenericParameter(const Il2CppType* type);
         static Il2CppClass* GetDeclaringType(const Il2CppType* type);
         static const MethodInfo* GetDeclaringMethod(const Il2CppType* type);
         static Il2CppArray* GetGenericArgumentsInternal(Il2CppReflectionType* type, bool runtimeArray);
@@ -226,7 +227,6 @@ namespace vm
         static void GetNameInternal(std::string &oss, const Il2CppType *type, Il2CppTypeNameFormat format, bool is_nested);
         static bool IsReference(const Il2CppType* type);
         static bool IsStruct(const Il2CppType* type);
-        static bool GenericInstIsValuetype(const Il2CppType* type);
         static bool HasVariableRuntimeSizeWhenFullyShared(const Il2CppType* type);
 
         static bool IsArray(const Il2CppType *type);

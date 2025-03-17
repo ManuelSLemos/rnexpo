@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../Baselib_CountdownTimer.h"
 #include "../Baselib_Atomic_TypeSafe.h"
 #include "../Baselib_SystemSemaphore.h"
 #include "../Baselib_StaticAssert.h"
+#include "Baselib_SpinLoop.h"
 
 #if PLATFORM_FUTEX_NATIVE_SUPPORT
     #error "It's highly recommended to use Baselib_EventSemaphore_FutexBased.inl.h on platforms which has native semaphore support"
@@ -112,18 +112,31 @@ static FORCE_INLINE int32_t Detail_Baselib_EventSemaphore_SetWaitingForSetCount(
 
 BASELIB_INLINE_API Baselib_EventSemaphore Baselib_EventSemaphore_Create(void)
 {
-    Baselib_EventSemaphore semaphore = {{{0, 0}}, {0}, {0}, {0}, {0}, {0}, {0}};
-
-    semaphore.setSemaphore = Baselib_SystemSemaphore_CreateInplace(semaphore._systemSemaphoreDataSemaphore);
-    semaphore.setInProgressSemaphore = Baselib_SystemSemaphore_CreateInplace(semaphore._systemSemaphoreDataInProgressSemaphore);
+    Baselib_EventSemaphore semaphore = {{{0, 0}}, Baselib_SystemSemaphore_Create(), Baselib_SystemSemaphore_Create(), {0}, {0}, {0}, {0}};
     return semaphore;
 }
 
-COMPILER_WARN_UNUSED_RESULT
-BASELIB_INLINE_API bool Baselib_EventSemaphore_TryAcquire(Baselib_EventSemaphore* semaphore)
+BASELIB_INLINE_API void Baselib_EventSemaphore_CreateInplace(Baselib_EventSemaphore* semaphoreData)
 {
-    const int32_t numWaitingForSetAndStateFlags = Baselib_atomic_load_32_acquire(&semaphore->state.parts.numWaitingForSetAndStateFlags);
-    return Detail_Baselib_EventSemaphore_IsSet(numWaitingForSetAndStateFlags);
+    semaphoreData->state.parts.numWaitingForSetAndStateFlags = 0;
+    semaphoreData->state.parts.numWaitingForSetInProgress = 0;
+    semaphoreData->state.stateInt64 = 0;
+    semaphoreData->setSemaphore = Baselib_SystemSemaphore_CreateInplace(&semaphoreData->_systemSemaphoreDataSemaphore);
+    semaphoreData->setInProgressSemaphore = Baselib_SystemSemaphore_CreateInplace(&semaphoreData->_systemSemaphoreDataInProgressSemaphore);
+}
+
+COMPILER_WARN_UNUSED_RESULT
+BASELIB_INLINE_API bool Baselib_EventSemaphore_TrySpinAcquire(Baselib_EventSemaphore* semaphore, uint32_t maxSpinCount)
+{
+    int32_t numWaitingForSetAndStateFlags = Baselib_atomic_load_32_acquire(&semaphore->state.parts.numWaitingForSetAndStateFlags);
+    while (true)
+    {
+        if (Detail_Baselib_EventSemaphore_IsSet(numWaitingForSetAndStateFlags))
+            return true;
+
+        if (!Detail_Baselib_SpinLoop(&semaphore->state.parts.numWaitingForSetAndStateFlags, &numWaitingForSetAndStateFlags, &maxSpinCount))
+            return false;
+    }
 }
 
 BASELIB_INLINE_API void Baselib_EventSemaphore_Acquire(Baselib_EventSemaphore* semaphore)
@@ -174,6 +187,7 @@ BASELIB_INLINE_API void Baselib_EventSemaphore_Set(Baselib_EventSemaphore* semap
         &numWaitingForSetAndStateFlags,
         numWaitingForSetAndStateFlagsSet));
 
+    Baselib_Cpu_Hint_MonitorRelease();
     if (!Detail_Baselib_EventSemaphore_IsSetInProgress(numWaitingForSetAndStateFlags) && numWaitingForSet)
         Baselib_SystemSemaphore_Release(semaphore->setSemaphore, numWaitingForSet);
 }
@@ -202,6 +216,15 @@ BASELIB_INLINE_API void Baselib_EventSemaphore_ResetAndReleaseWaitingThreads(Bas
 }
 
 BASELIB_INLINE_API void Baselib_EventSemaphore_Free(Baselib_EventSemaphore* semaphore)
+{
+    if (!semaphore)
+        return;
+
+    Baselib_SystemSemaphore_Free(semaphore->setSemaphore);
+    Baselib_SystemSemaphore_Free(semaphore->setInProgressSemaphore);
+}
+
+BASELIB_INLINE_API void Baselib_EventSemaphore_FreeInplace(Baselib_EventSemaphore* semaphore)
 {
     if (!semaphore)
         return;

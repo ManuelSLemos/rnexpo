@@ -52,7 +52,7 @@ namespace baselib
             // Returns true if stack is empty.
             bool empty() const
             {
-                return m_Top.load(memory_order_relaxed).ptr == 0;
+                return atomic_load_explicit(m_Top.obj.ptr, memory_order_relaxed) == nullptr;
             }
 
             // Push a node to the top of the stack.

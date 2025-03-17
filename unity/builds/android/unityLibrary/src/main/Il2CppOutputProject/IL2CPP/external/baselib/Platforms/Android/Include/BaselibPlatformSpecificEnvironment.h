@@ -33,3 +33,8 @@ int raise(int sig);
 #define DETAIL_BASELIB_SIGTRAP 5
 
 #define BASELIB_DEBUG_TRAP() raise(DETAIL_BASELIB_SIGTRAP)
+
+// Cache line size in bytes
+#ifndef PLATFORM_CACHE_LINE_SIZE
+    #define PLATFORM_CACHE_LINE_SIZE 64
+#endif

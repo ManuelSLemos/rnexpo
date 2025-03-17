@@ -14,3 +14,8 @@ enum { Baselib_SystemSemaphore_PlatformSize = 32 }; // sem_t; 32 bytes
 #ifndef PLATFORM_FUTEX_NATIVE_SUPPORT
     #define PLATFORM_FUTEX_NATIVE_SUPPORT 1
 #endif
+
+// Cache line size in bytes
+#ifndef PLATFORM_CACHE_LINE_SIZE
+    #define PLATFORM_CACHE_LINE_SIZE 64
+#endif

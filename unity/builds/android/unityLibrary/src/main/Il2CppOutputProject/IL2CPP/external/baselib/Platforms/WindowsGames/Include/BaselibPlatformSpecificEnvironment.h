@@ -30,3 +30,8 @@ enum { Baselib_SystemSemaphore_PlatformSize = 1 }; // unused but 1 to simplify t
         #define PLATFORM_MEMORY_MALLOC_MIN_ALIGNMENT 8
     #endif
 #endif
+
+// Cache line size in bytes
+#ifndef PLATFORM_CACHE_LINE_SIZE
+    #define PLATFORM_CACHE_LINE_SIZE 64
+#endif
